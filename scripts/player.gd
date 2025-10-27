@@ -35,7 +35,7 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
     if event is InputEventMouseMotion:
         rotate_y(deg_to_rad(-event.relative.x * mouse_sensitivity))
-        var pitch := clamp(_camera.rotation_degrees.x - event.relative.y * mouse_sensitivity, -89.0, 89.0)
+        var pitch := clampf(_camera.rotation_degrees.x - event.relative.y * mouse_sensitivity, -89.0, 89.0)
         _camera.rotation_degrees.x = pitch
     elif event.is_action_pressed("flashlight_toggle"):
         _flashlight_active = !_flashlight_active
