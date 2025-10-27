@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=6 format=3 uid="uid://b7jr16endeles"]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/stalker.tscn" id="2"]
@@ -13,7 +13,7 @@ script = ExtResource("4")
 script = ExtResource("5")
 
 [node name="WorldLight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(60, -30, 0)
+transform = Transform3D(0.866025, -0.433013, -0.25, 0, 0.5, -0.866025, 0.5, 0.75, 0.433013, 0, 0, 0)
 light_color = Color(0.28, 0.3, 0.35, 1)
 light_energy = 0.2
 shadow_enabled = true
@@ -28,58 +28,51 @@ script = ExtResource("3")
 [node name="HUD" type="CanvasLayer" parent="."]
 
 [node name="Stamina" type="MarginContainer" parent="HUD"]
-anchors_preset = 9
+anchors_preset = 13
 anchor_left = 0.5
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -200.0
+offset_top = -90.0
 offset_right = 200.0
 offset_bottom = -40.0
-offset_top = -90.0
 
 [node name="Bar" type="ProgressBar" parent="HUD/Stamina"]
-anchors_preset = 0
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 400.0
-offset_bottom = 24.0
-min_value = 0.0
-max_value = 100.0
+custom_minimum_size = Vector2(400, 24)
+layout_mode = 2
 value = 100.0
 show_percentage = false
-custom_minimum_size = Vector2(400, 24)
 
 [node name="CaughtPanel" type="Control" parent="HUD"]
 visible = false
-anchors_preset = 15
+layout_mode = 3
+anchors_preset = 0
 offset_left = -200.0
-offset_right = 200.0
 offset_top = -60.0
+offset_right = 200.0
 offset_bottom = 60.0
 
 [node name="Panel" type="ColorRect" parent="HUD/CaughtPanel"]
-anchors_preset = 15
+layout_mode = 0
 offset_left = -180.0
-offset_right = 180.0
 offset_top = -60.0
+offset_right = 180.0
 offset_bottom = 60.0
 color = Color(0.02, 0.01, 0.02, 0.8)
 
 [node name="Label" type="Label" parent="HUD/CaughtPanel"]
-anchors_preset = 15
+layout_mode = 0
 offset_left = -160.0
-offset_right = 160.0
 offset_top = -16.0
+offset_right = 160.0
 offset_bottom = 16.0
+text = "Caught"
 horizontal_alignment = 1
 vertical_alignment = 1
-text = "Caught"
 uppercase = true
 
 [node name="Message" type="Label" parent="HUD"]
-anchors_preset = 1
+self_modulate = Color(0.65, 0.65, 0.7, 0.9)
 offset_left = 20.0
 offset_top = 20.0
 text = "Noise draws it closer."
-self_modulate = Color(0.65, 0.65, 0.7, 0.9)
-
