@@ -1,12 +1,16 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/stalker.tscn" id="2"]
 [ext_resource type="Script" path="res://scripts/level.gd" id="3"]
 [ext_resource type="Script" path="res://scripts/main.gd" id="4"]
+[ext_resource type="Script" path="res://scripts/ambient_hum.gd" id="5"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4")
+
+[node name="AmbientAudio" type="AudioStreamPlayer" parent="."]
+script = ExtResource("5")
 
 [node name="WorldLight" type="DirectionalLight3D" parent="."]
 rotation_degrees = Vector3(60, -30, 0)
