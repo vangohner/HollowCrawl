@@ -170,9 +170,9 @@ func _create_steam_material() -> ParticleProcessMaterial:
     mat.scale_min = 0.5
     mat.scale_max = 1.1
     var scale_curve: Curve = Curve.new()
-    scale_curve.add_point(0.0, 0.0)
-    scale_curve.add_point(0.4, 0.6)
-    scale_curve.add_point(1.0, 1.0)
+    scale_curve.add_point(Vector2(0.0, 0.0))
+    scale_curve.add_point(Vector2(0.4, 0.6))
+    scale_curve.add_point(Vector2(1.0, 1.0))
     var curve_texture: CurveTexture = CurveTexture.new()
     curve_texture.curve = scale_curve
     mat.scale_curve = curve_texture
@@ -218,9 +218,10 @@ func find_path(start: Vector2i, goal: Vector2i) -> PackedVector3Array:
 
 func get_random_cell_near(center: Vector2i, radius: int, require_cover: bool = false, threat_origin: Vector3 = Vector3.ZERO) -> Vector2i:
     var candidates: Array[Vector2i] = []
+    var center_pos: Vector2 = Vector2(center.x, center.y)
     for cell in _cells:
-        var cell_pos: Vector2 = cell.to_vector2()
-        if cell_pos.distance_to(center.to_vector2()) <= float(radius) and _walkable.has(cell):
+        var cell_pos: Vector2 = Vector2(cell.x, cell.y)
+        if cell_pos.distance_to(center_pos) <= float(radius) and _walkable.has(cell):
             if not require_cover or not has_line_of_sight_world(grid_to_world(cell) + Vector3.UP * 1.4, threat_origin):
                 candidates.append(cell)
     if candidates.is_empty():
