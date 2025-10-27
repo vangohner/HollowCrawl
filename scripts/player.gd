@@ -83,7 +83,7 @@ func _physics_process(delta: float) -> void:
 
     var movement_intensity := clampf(target_velocity.length() / run_speed, 0.0, 1.0)
     if movement_intensity > 0.1:
-        emit_signal("noise_emitted", 0.4 + movement_intensity * (is_running ? 1.2 : 0.6))
+        emit_signal("noise_emitted", 0.4 + movement_intensity * (1.2 if is_running else 0.6))
     else:
         emit_signal("noise_emitted", 0.1)
 
