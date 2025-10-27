@@ -143,8 +143,16 @@ func _follow_path(delta: float, target_speed: float) -> void:
 
 func _choose_hiding_destination(player_pos: Vector3) -> void:
     var player_cell: Vector2i = _level.world_to_grid(player_pos)
-    var target_cell: Vector2i = _level.get_random_cell_near(player_cell, 6, true, player_pos)
-    _path = _level.find_path(_level.world_to_grid(global_transform.origin), target_cell)
+    var origin_cell: Vector2i = _level.world_to_grid(global_transform.origin)
+    var target_cell: Vector2i = origin_cell
+    for _i in range(6):
+        var candidate: Vector2i = _level.get_random_cell_near(player_cell, 6, true, player_pos)
+        if candidate != origin_cell:
+            target_cell = candidate
+            break
+    if target_cell == origin_cell:
+        target_cell = _level.get_random_cell_near(player_cell, 6, false, player_pos)
+    _path = _level.find_path(origin_cell, target_cell)
     _path_index = 0
 
 func _player_is_visible() -> bool:

@@ -6,6 +6,7 @@ const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, 
 @export var wall_height: float = 4.0
 @export var wall_thickness: float = 0.5
 @export var floor_thickness: float = 0.25
+@export var ceiling_thickness: float = 0.25
 @export var map_layout: Array[String] = [
     "########################",
     "#....#...........#.....#",
@@ -45,6 +46,7 @@ func _generate_level() -> void:
                 _walkable[cell] = true
                 _cells.append(cell)
                 _create_floor(cell)
+                _create_ceiling(cell)
     for cell in _cells:
         _create_walls_for_cell(cell)
         if randi() % 4 == 0:
@@ -72,6 +74,27 @@ func _create_floor(cell: Vector2i) -> void:
 
     floor_body.position = grid_to_world(cell)
     add_child(floor_body)
+
+func _create_ceiling(cell: Vector2i) -> void:
+    var ceiling_body: StaticBody3D = StaticBody3D.new()
+    ceiling_body.name = "Ceiling_%s_%s" % [cell.x, cell.y]
+    var mesh_instance: MeshInstance3D = MeshInstance3D.new()
+    var mesh: BoxMesh = BoxMesh.new()
+    mesh.size = Vector3(cell_size, ceiling_thickness, cell_size)
+    mesh_instance.mesh = mesh
+    mesh_instance.material_override = _create_ceiling_material()
+    mesh_instance.position = Vector3(0, ceiling_thickness * 0.5, 0)
+    ceiling_body.add_child(mesh_instance)
+
+    var collision: CollisionShape3D = CollisionShape3D.new()
+    var shape: BoxShape3D = BoxShape3D.new()
+    shape.size = Vector3(cell_size, ceiling_thickness, cell_size)
+    collision.shape = shape
+    collision.position = Vector3(0, ceiling_thickness * 0.5, 0)
+    ceiling_body.add_child(collision)
+
+    ceiling_body.position = grid_to_world(cell) + Vector3(0, wall_height, 0)
+    add_child(ceiling_body)
 
 func _create_walls_for_cell(cell: Vector2i) -> void:
     for dir in DIRECTIONS:
@@ -151,6 +174,13 @@ func _create_wall_material() -> StandardMaterial3D:
     mat.roughness = 0.9
     mat.metallic = 0.05
     # Detail channels expect texture inputs; omit to avoid type mismatches when using plain colors.
+    return mat
+
+func _create_ceiling_material() -> StandardMaterial3D:
+    var mat: StandardMaterial3D = StandardMaterial3D.new()
+    mat.albedo_color = Color(0.05, 0.05, 0.055, 1)
+    mat.roughness = 0.95
+    mat.metallic = 0.02
     return mat
 
 func _create_pipe_material() -> StandardMaterial3D:
