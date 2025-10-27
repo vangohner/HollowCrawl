@@ -1,0 +1,24 @@
+[gd_resource type="Environment" load_steps=2 format=3]
+
+[sub_resource type="Environment" id="1"]
+background_mode=2
+background_color=Color(0.02, 0.02, 0.025, 1)
+fog_enabled=true
+fog_density=0.05
+fog_light_energy=0.8
+fog_sun_scatter=1.5
+fog_volumetric_enabled=true
+fog_volumetric_density=0.18
+fog_volumetric_ao_enabled=true
+fog_depth_begin=1.5
+fog_depth_curve=2.0
+fog_depth_end=150.0
+ambient_light_color=Color(0.02, 0.02, 0.035, 1)
+ambient_light_energy=0.4
+ambient_light_sky_contribution=0.0
+tone_mapper=3
+
+[resource]
+resource_name="HollowCrawlEnvironment"
+resource_local_to_scene=false
+resource=SubResource("1")

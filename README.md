@@ -1,1 +1,42 @@
-Can you create a horror game that has a disfigured monster that chases you through dark cellars and basements in liminal space with concrete walls and stalks you. You have a flashlight and there's pipes on the walls and steam and fog in the air, and the monster keeps out of sight as it staggers around trying to stay out of sight until it's close enough to you to pounce on you and kill you. It's a long distorted humanoid figure that bends and teeters as it moves, but is very agile and alert. It can lunge extremely quickly, and dart fast out of light. It makes lots of noise when out of sight and you can hear it running around. The grid-like layout of the place with tight hallways provides ample cover for it to get close to you and destroy you. It is toying with you like a frightened animal who is desperate for food. I want a first-person game where I run through the darkness being chased by this thing while I try to get away to something, anything, some hope that I might find a way out but there probably isn't any because this liminal space seems to never end, the walls and breaks and cracks and pipes and concrete floor all seem to repeat themselves as they emerge from the darkness when I get close. I want to feel disturbed. I want to feel like I am nothing and I am about to be caught, and that there's nothing I can do but run desperately while I lose stamina, lose hope, my vision swaying, my flashlight bouncing, my breath rugged. But the environment is unfeeling, uncaring, unaware, and the creature chases on. I expect that I'm running through hallways, not large rooms. The layout should be grid like. The monster should try to avoid being seen until it's close to catch me, like a real animal would. It would be a gangly and long-limbed, like Slenderman but more animalistic. I expect the gameplay would be more about running and trying to find some destination while this creature hunts you. I think of the creature like the ones from a quiet place, where they can't see well but are hyper alert to noise, and so as you move and do things, when puddles splash, steam hisses, you run and breath heavily, you draw the creatures attention. I expect the creature to be a strange hybrid of seemingly clumsy but also extremely swift and agile, in that while the creature is very fast, it is also rather loud as it bangs around at high speeds.
+# HollowCrawl
+
+HollowCrawl is a first-person horror prototype built with Godot 4.2. You wake up inside an endless grid of concrete maintenance tunnels where a disfigured, hyper-aware predator stalks you from the dark. Sprinting, splashing through puddles, or even breathing too loudly will draw it near as it hides behind the maze-like walls until it can pounce.
+
+## Getting started
+
+1. Install [Godot 4.2](https://godotengine.org/download) (standard edition).
+2. Open the project folder (`HollowCrawl/`) from the Godot project manager.
+3. Run the main scene (`scenes/main.tscn`) or press <kbd>F5</kbd> to play.
+
+## Controls
+
+| Action | Default |
+| --- | --- |
+| Move | <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> |
+| Sprint | <kbd>Shift</kbd> |
+| Toggle flashlight | <kbd>F</kbd> |
+| Interact (reserved) | <kbd>E</kbd> |
+| Mouse look | Move mouse |
+
+## Gameplay notes
+
+- Your stamina drains quickly while sprinting, causing vision sway and heavy breathing that the creature can hear.
+- The tunnels are generated from a dense grid map lined with concrete walls, pipes, and jets of steam to create liminal, claustrophobic sightlines.
+- The monster listens for noise, darts between cover to stay out of the flashlight, and lunges once you are cornered. If it reaches you, the run ends.
+
+## Project structure
+
+```
+scenes/
+  main.tscn        # main game scene (level, player, monster, HUD)
+  player.tscn      # first-person controller prefab
+  stalker.tscn     # long-limbed hunter prefab
+scripts/
+  main.gd          # scene orchestration and UI
+  player.gd        # movement, stamina, flashlight, camera sway
+  stalker.gd       # creature AI (stalking, chasing, lunging)
+  level.gd         # grid-map generation, walls, pipes, fog
+project.godot      # Godot project configuration
+```
+
+Feel free to tweak the map layout, creature speeds, or environmental effects to push the experience in an even more unsettling direction.
