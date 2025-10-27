@@ -23,6 +23,7 @@ var _head_bob_time: float = 0.0
 var _flashlight_active: bool = true
 var _camera_pitch_deg: float = 0.0
 var _camera_base_rotation: Vector3 = Vector3.ZERO
+var _camera_default_position: Vector3 = Vector3.ZERO
 var _sway_rotation: Vector3 = Vector3.ZERO
 
 @onready var _camera: Camera3D = $Camera
@@ -35,6 +36,7 @@ func _ready() -> void:
     emit_signal("stamina_changed", stamina / stamina_max)
     _flashlight.visible = _flashlight_active
     _camera_base_rotation = _camera.rotation_degrees
+    _camera_default_position = _camera.position
     _camera_pitch_deg = _camera_base_rotation.x
     _apply_camera_rotation()
 
@@ -97,12 +99,12 @@ func _physics_process(delta: float) -> void:
 func _update_head_bob(delta: float, target_speed: float, movement_amount: float) -> void:
     if movement_amount < 0.1 or not is_on_floor():
         _head_bob_time = lerp(_head_bob_time, 0.0, delta * 5.0)
-        _camera.position = _camera.position.lerp(Vector3.ZERO, delta * 6.0)
+        _camera.position = _camera.position.lerp(_camera_default_position, delta * 6.0)
         return
 
     _head_bob_time += delta * head_bob_speed * movement_amount * clampf(target_speed / run_speed, 0.5, 1.0)
     var bob_offset: Vector3 = Vector3(0.0, sin(_head_bob_time) * head_bob_amount, 0.0)
-    _camera.position = _camera.position.lerp(bob_offset, delta * 10.0)
+    _camera.position = _camera.position.lerp(_camera_default_position + bob_offset, delta * 10.0)
 
 func _update_sway(delta: float) -> void:
     var mouse_pos: Vector2 = get_viewport().get_mouse_position()
