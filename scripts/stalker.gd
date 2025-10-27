@@ -29,6 +29,26 @@ var _sway_time: float = 0.0
 
 @onready var _body_mesh: Node3D = $Body
 
+func get_debug_info() -> Dictionary:
+    var info := {
+        "state": _state,
+        "position": global_transform.origin,
+        "velocity": Vector3(velocity.x, 0.0, velocity.z),
+        "distance_to_player": 0.0,
+        "path_node": _path_index,
+        "path_length": _path.size(),
+        "noise_memory": _noise_timer,
+        "time_since_seen": _time_since_seen,
+        "last_noise_position": _last_noise_position
+    }
+    if _player:
+        info["distance_to_player"] = global_transform.origin.distance_to(_player.global_transform.origin)
+    if _path_index >= 0 and _path_index < _path.size():
+        info["current_target"] = _path[_path_index]
+    else:
+        info["current_target"] = null
+    return info
+
 func _ready() -> void:
     _level = get_parent().get_node_or_null("Level")
     _player = get_tree().get_first_node_in_group("player") as CharacterBody3D
