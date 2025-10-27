@@ -5,6 +5,7 @@ const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, 
 @export var cell_size: float = 6.0
 @export var wall_height: float = 4.0
 @export var wall_thickness: float = 0.5
+@export var floor_thickness: float = 0.25
 @export var map_layout: Array[String] = [
     "########################",
     "#....#...........#.....#",
@@ -56,17 +57,17 @@ func _create_floor(cell: Vector2i) -> void:
     floor_body.name = "Floor_%s_%s" % [cell.x, cell.y]
     var mesh_instance: MeshInstance3D = MeshInstance3D.new()
     var mesh: BoxMesh = BoxMesh.new()
-    mesh.size = Vector3(cell_size, 0.2, cell_size)
+    mesh.size = Vector3(cell_size, floor_thickness, cell_size)
     mesh_instance.mesh = mesh
     mesh_instance.material_override = _create_floor_material()
-    mesh_instance.position = Vector3(0, -0.6, 0)
+    mesh_instance.position = Vector3(0, -floor_thickness * 0.5, 0)
     floor_body.add_child(mesh_instance)
 
     var collision: CollisionShape3D = CollisionShape3D.new()
     var shape: BoxShape3D = BoxShape3D.new()
-    shape.size = Vector3(cell_size, 0.2, cell_size)
+    shape.size = Vector3(cell_size, floor_thickness, cell_size)
     collision.shape = shape
-    collision.position = Vector3.ZERO
+    collision.position = Vector3(0, -floor_thickness * 0.5, 0)
     floor_body.add_child(collision)
 
     floor_body.position = grid_to_world(cell)
