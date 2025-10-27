@@ -141,9 +141,7 @@ func _create_floor_material() -> StandardMaterial3D:
     mat.albedo_color = Color(0.06, 0.06, 0.065, 1)
     mat.roughness = 1.0
     mat.metallic = 0.1
-    mat.detail = 0.2
-    mat.detail_albedo = Color(0.08, 0.08, 0.09, 1)
-    mat.detail_uv = StandardMaterial3D.DETAIL_UV_2
+    # Detail channels expect texture inputs; omit to avoid type mismatches when using plain colors.
     return mat
 
 func _create_wall_material() -> StandardMaterial3D:
@@ -151,8 +149,7 @@ func _create_wall_material() -> StandardMaterial3D:
     mat.albedo_color = Color(0.08, 0.08, 0.09, 1)
     mat.roughness = 0.9
     mat.metallic = 0.05
-    mat.detail = 0.3
-    mat.detail_albedo = Color(0.1, 0.1, 0.11, 1)
+    # Detail channels expect texture inputs; omit to avoid type mismatches when using plain colors.
     return mat
 
 func _create_pipe_material() -> StandardMaterial3D:
@@ -172,11 +169,13 @@ func _create_steam_material() -> ParticleProcessMaterial:
     mat.angular_velocity_max = 0.6
     mat.scale_min = 0.5
     mat.scale_max = 1.1
-    var curve: Curve = Curve.new()
-    curve.add_point(0.0, 0.0)
-    curve.add_point(0.4, 0.6)
-    curve.add_point(1.0, 1.0)
-    mat.scale_curve = curve
+    var scale_curve: Curve = Curve.new()
+    scale_curve.add_point(0.0, 0.0)
+    scale_curve.add_point(0.4, 0.6)
+    scale_curve.add_point(1.0, 1.0)
+    var curve_texture: CurveTexture = CurveTexture.new()
+    curve_texture.curve = scale_curve
+    mat.scale_curve = curve_texture
     mat.color = Color(0.75, 0.76, 0.8, 0.42)
     return mat
 
@@ -220,7 +219,8 @@ func find_path(start: Vector2i, goal: Vector2i) -> PackedVector3Array:
 func get_random_cell_near(center: Vector2i, radius: int, require_cover: bool = false, threat_origin: Vector3 = Vector3.ZERO) -> Vector2i:
     var candidates: Array[Vector2i] = []
     for cell in _cells:
-        if cell.distance_to(center) <= radius and _walkable.has(cell):
+        var cell_pos: Vector2 = cell.to_vector2()
+        if cell_pos.distance_to(center.to_vector2()) <= float(radius) and _walkable.has(cell):
             if not require_cover or not has_line_of_sight_world(grid_to_world(cell) + Vector3.UP * 1.4, threat_origin):
                 candidates.append(cell)
     if candidates.is_empty():
@@ -228,11 +228,17 @@ func get_random_cell_near(center: Vector2i, radius: int, require_cover: bool = f
     candidates.shuffle()
     return candidates[0]
 
-func has_line_of_sight_world(from_pos: Vector3, to_pos: Vector3, exclude: Array[Object] = []) -> bool:
+func has_line_of_sight_world(from_pos: Vector3, to_pos: Vector3, exclude: Array = []) -> bool:
     if not _space_state:
         _space_state = get_world_3d().direct_space_state
     var params: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(from_pos, to_pos)
-    params.exclude = exclude
+    var exclude_rids: Array[RID] = []
+    for item in exclude:
+        if item is CollisionObject3D:
+            exclude_rids.append(item.get_rid())
+        elif typeof(item) == TYPE_RID:
+            exclude_rids.append(item)
+    params.exclude = exclude_rids
     params.collision_mask = 0xFFFFFFFF
     var result: Dictionary = _space_state.intersect_ray(params)
     return result.is_empty()
