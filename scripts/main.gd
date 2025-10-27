@@ -6,6 +6,7 @@ extends Node3D
 @onready var stamina_bar: ProgressBar = $HUD/Stamina/Bar
 @onready var caught_panel: Control = $HUD/CaughtPanel
 @onready var caught_label: Label = $HUD/CaughtPanel/Label
+@onready var message_label: Label = $HUD/Message
 
 var _caught := false
 
@@ -16,6 +17,7 @@ func _ready() -> void:
     stalker.call("set_level", level)
     stalker.call("set_player", player)
     player.connect("stamina_changed", Callable(self, "_on_stamina_changed"))
+    player.connect("movement_state_changed", Callable(self, "_on_player_movement_state"))
     stalker.connect("player_caught", Callable(self, "_on_player_caught"))
     stalker.connect("monster_seen", Callable(self, "_on_monster_seen"))
     var player_transform := player.global_transform
@@ -26,6 +28,7 @@ func _ready() -> void:
     stalker.global_transform = stalker_transform
     caught_panel.visible = false
     _on_stamina_changed(1.0)
+    _on_player_movement_state(false, 0.0)
 
 func _on_stamina_changed(value: float) -> void:
     stamina_bar.value = clamp(value * 100.0, 0.0, 100.0)
@@ -42,3 +45,14 @@ func _on_player_caught() -> void:
 
 func _on_monster_seen() -> void:
     player.apply_shake(0.4)
+
+func _on_player_movement_state(is_running: bool, intensity: float) -> void:
+    if intensity < 0.05:
+        message_label.text = "Holding still"
+        message_label.self_modulate = Color(0.65, 0.8, 0.7, 0.9)
+    elif is_running:
+        message_label.text = "Running — it will hear you"
+        message_label.self_modulate = Color(0.95, 0.4, 0.35, 0.95)
+    else:
+        message_label.text = "Walking softly"
+        message_label.self_modulate = Color(0.75, 0.75, 0.85, 0.9)

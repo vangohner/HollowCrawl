@@ -137,15 +137,31 @@ func _create_wall_segment(cell: Vector2i, dir: Vector2i) -> void:
     add_child(wall)
 
 func _create_pipe(cell: Vector2i) -> void:
+    var blocked_dirs: Array[Vector2i] = []
+    for dir in DIRECTIONS:
+        if not _walkable.has(cell + dir):
+            blocked_dirs.append(dir)
+    if blocked_dirs.is_empty():
+        return
+    var facing: Vector2i = blocked_dirs[randi() % blocked_dirs.size()]
     var pipe: MeshInstance3D = MeshInstance3D.new()
     pipe.name = "Pipe_%s_%s" % [cell.x, cell.y]
     var pipe_mesh: CylinderMesh = CylinderMesh.new()
-    pipe_mesh.radius = 0.18
-    pipe_mesh.height = cell_size * 0.9
+    pipe_mesh.radius = 0.22
+    pipe_mesh.height = wall_height - floor_thickness * 0.5
     pipe.mesh = pipe_mesh
     pipe.material_override = _create_pipe_material()
-    pipe.rotation_degrees = Vector3(90, 0, randf_range(-12, 12))
-    pipe.position = grid_to_world(cell) + Vector3(randf_range(-cell_size * 0.3, cell_size * 0.3), wall_height * 0.6, -cell_size / 2.0 + 0.4)
+    var offset: Vector3 = Vector3.ZERO
+    var inset: float = cell_size * 0.5 - 0.35
+    if facing == Vector2i.UP:
+        offset = Vector3(0, pipe_mesh.height * 0.5, -inset)
+    elif facing == Vector2i.DOWN:
+        offset = Vector3(0, pipe_mesh.height * 0.5, inset)
+    elif facing == Vector2i.LEFT:
+        offset = Vector3(-inset, pipe_mesh.height * 0.5, 0)
+    else:
+        offset = Vector3(inset, pipe_mesh.height * 0.5, 0)
+    pipe.position = grid_to_world(cell) + offset
     add_child(pipe)
 
 func _create_steam(cell: Vector2i) -> void:
@@ -258,7 +274,24 @@ func get_random_cell_near(center: Vector2i, radius: int, require_cover: bool = f
     if candidates.is_empty():
         return center
     candidates.shuffle()
+    for candidate in candidates:
+        if candidate != center:
+            return candidate
     return candidates[0]
+
+func get_random_distant_cell(origin: Vector2i, min_distance: int = 4) -> Vector2i:
+    var options: Array[Vector2i] = []
+    var origin_pos: Vector2 = Vector2(origin.x, origin.y)
+    for cell in _cells:
+        if cell == origin:
+            continue
+        var distance: float = Vector2(cell.x, cell.y).distance_to(origin_pos)
+        if distance >= float(min_distance):
+            options.append(cell)
+    if options.is_empty():
+        return origin
+    options.shuffle()
+    return options[0]
 
 func has_line_of_sight_world(from_pos: Vector3, to_pos: Vector3, exclude: Array = []) -> bool:
     if not _space_state:
