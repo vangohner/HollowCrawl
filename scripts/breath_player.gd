@@ -1,5 +1,7 @@
 extends AudioStreamPlayer3D
 
+class_name BreathPlayer
+
 @export var breath_duration: float = 1.2
 @export var tone_frequency_hz: float = 180.0
 @export var noise_amount: float = 0.45
@@ -20,17 +22,17 @@ func _ready() -> void:
     volume_db = -10.0
     set_process(true)
 
-func play(from_position: float = 0.0) -> void:
+func start_breath(from_position: float = 0.0) -> void:
     _total_frames = int(breath_duration * _mix_rate)
     _frames_written = 0
     _phase = 0.0
-    .play(from_position)
+    AudioStreamPlayer3D.play.call(self, from_position)
     _playback = get_stream_playback() as AudioStreamGeneratorPlayback
     if _playback:
         _playback.clear_buffer()
 
-func stop() -> void:
-    .stop()
+func stop_breath() -> void:
+    AudioStreamPlayer3D.stop.call(self)
     _frames_written = 0
     _total_frames = 0
     if _playback:

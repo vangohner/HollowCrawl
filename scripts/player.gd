@@ -27,7 +27,7 @@ var _sway_rotation: Vector3 = Vector3.ZERO
 
 @onready var _camera: Camera3D = $Camera
 @onready var _flashlight: SpotLight3D = $Camera/Flashlight
-@onready var _breath: AudioStreamPlayer3D = $Breath
+@onready var _breath: BreathPlayer = $Breath
 
 func _ready() -> void:
     Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -122,7 +122,7 @@ func apply_shake(amount: float) -> void:
 func on_monster_close() -> void:
     if _breath.stream and not _breath.playing:
         _breath.pitch_scale = randf_range(0.85, 1.1)
-        _breath.play()
+        _breath.start_breath()
 
 func _apply_camera_rotation() -> void:
     var base_rotation: Vector3 = _camera_base_rotation
