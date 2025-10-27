@@ -21,31 +21,42 @@ var stamina: float = stamina_max
 var _recovery_timer: float = 0.0
 var _head_bob_time: float = 0.0
 var _flashlight_active: bool = true
+var _camera_pitch_deg: float = 0.0
+var _camera_base_rotation: Vector3 = Vector3.ZERO
+var _sway_rotation: Vector3 = Vector3.ZERO
 
 @onready var _camera: Camera3D = $Camera
 @onready var _flashlight: SpotLight3D = $Camera/Flashlight
-@onready var _breath: AudioStreamPlayer3D = $Breath
+@onready var _breath: BreathPlayer = $Breath
 
 func _ready() -> void:
     Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
     stamina = stamina_max
     emit_signal("stamina_changed", stamina / stamina_max)
     _flashlight.visible = _flashlight_active
+    _camera_base_rotation = _camera.rotation_degrees
+    _camera_pitch_deg = _camera_base_rotation.x
+    _apply_camera_rotation()
 
 func _input(event: InputEvent) -> void:
     if event is InputEventMouseMotion:
         rotate_y(deg_to_rad(-event.relative.x * mouse_sensitivity))
-        var pitch: float = clampf(_camera.rotation_degrees.x - event.relative.y * mouse_sensitivity, -89.0, 89.0)
-        _camera.rotation_degrees.x = pitch
+        _camera_pitch_deg = clampf(_camera_pitch_deg - event.relative.y * mouse_sensitivity, -89.0, 89.0)
+        _apply_camera_rotation()
     elif event.is_action_pressed("flashlight_toggle"):
         _flashlight_active = !_flashlight_active
         _flashlight.visible = _flashlight_active
 
 func _physics_process(delta: float) -> void:
-    var input_dir: Vector3 = Vector3.ZERO
-    input_dir.x = Input.get_action_strength("move_right") - Input.get_action_strength("move_left")
-    input_dir.z = Input.get_action_strength("move_backward") - Input.get_action_strength("move_forward")
-    input_dir = input_dir.normalized()
+    var input_vector: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+    var local_basis: Basis = global_transform.basis
+    var forward: Vector3 = -local_basis.z
+    var right: Vector3 = local_basis.x
+    var move_direction: Vector3 = (right * input_vector.x) + (forward * -input_vector.y)
+    var move_strength: float = move_direction.length()
+    move_strength = clampf(move_strength, 0.0, 1.0)
+    if move_strength > 0.0:
+        move_direction /= move_strength
 
     if not is_on_floor():
         velocity.y -= gravity * delta
@@ -54,7 +65,7 @@ func _physics_process(delta: float) -> void:
 
     var target_speed: float = walk_speed
     var is_running: bool = false
-    if Input.is_action_pressed("run") and stamina > 0.1 and input_dir.length() > 0.0:
+    if Input.is_action_pressed("run") and stamina > 0.1 and move_strength > 0.0:
         target_speed = run_speed
         stamina = max(0.0, stamina - stamina_drain_rate * delta)
         _recovery_timer = 0.0
@@ -68,17 +79,13 @@ func _physics_process(delta: float) -> void:
 
     emit_signal("stamina_changed", stamina / stamina_max)
 
-    var local_basis: Basis = global_transform.basis
-    var forward: Vector3 = -local_basis.z
-    var right: Vector3 = local_basis.x
-
-    var target_velocity: Vector3 = (forward * input_dir.z + right * input_dir.x) * target_speed
+    var target_velocity: Vector3 = move_direction * target_speed
     velocity.x = lerp(velocity.x, target_velocity.x, acceleration * delta)
     velocity.z = lerp(velocity.z, target_velocity.z, acceleration * delta)
 
     move_and_slide()
 
-    _update_head_bob(delta, target_speed, input_dir.length())
+    _update_head_bob(delta, target_speed, move_strength)
     _update_sway(delta)
 
     var movement_intensity: float = clampf(target_velocity.length() / run_speed, 0.0, 1.0)
@@ -104,7 +111,10 @@ func _update_sway(delta: float) -> void:
         var center: Vector2 = viewport.size / 2.0
         var offset: Vector2 = (mouse_pos - center) / center
         var sway: Vector3 = Vector3(-offset.y, -offset.x, 0.0) * sway_amount
-        _camera.rotation = _camera.rotation.lerp(Vector3(deg_to_rad(sway.x), deg_to_rad(sway.y), 0.0), delta * sway_smooth)
+        _sway_rotation = _sway_rotation.lerp(sway, delta * sway_smooth)
+    else:
+        _sway_rotation = _sway_rotation.lerp(Vector3.ZERO, delta * sway_smooth)
+    _apply_camera_rotation()
 
 func apply_shake(amount: float) -> void:
     _head_bob_time += amount * 0.5
@@ -112,4 +122,10 @@ func apply_shake(amount: float) -> void:
 func on_monster_close() -> void:
     if _breath.stream and not _breath.playing:
         _breath.pitch_scale = randf_range(0.85, 1.1)
-        _breath.play()
+        _breath.start_breath()
+
+func _apply_camera_rotation() -> void:
+    var base_rotation: Vector3 = _camera_base_rotation
+    base_rotation.x = _camera_pitch_deg
+    var target_rotation: Vector3 = base_rotation + _sway_rotation
+    _camera.rotation_degrees = target_rotation
