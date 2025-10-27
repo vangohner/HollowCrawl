@@ -68,9 +68,9 @@ func _physics_process(delta: float) -> void:
 
     emit_signal("stamina_changed", stamina / stamina_max)
 
-    var basis: Basis = global_transform.basis
-    var forward: Vector3 = -basis.z
-    var right: Vector3 = basis.x
+    var local_basis: Basis = global_transform.basis
+    var forward: Vector3 = -local_basis.z
+    var right: Vector3 = local_basis.x
 
     var target_velocity: Vector3 = (forward * input_dir.z + right * input_dir.x) * target_speed
     velocity.x = lerp(velocity.x, target_velocity.x, acceleration * delta)
@@ -90,12 +90,12 @@ func _physics_process(delta: float) -> void:
 func _update_head_bob(delta: float, target_speed: float, movement_amount: float) -> void:
     if movement_amount < 0.1 or not is_on_floor():
         _head_bob_time = lerp(_head_bob_time, 0.0, delta * 5.0)
-        _camera.translation = _camera.translation.lerp(Vector3.ZERO, delta * 6.0)
+        _camera.position = _camera.position.lerp(Vector3.ZERO, delta * 6.0)
         return
 
     _head_bob_time += delta * head_bob_speed * movement_amount * clampf(target_speed / run_speed, 0.5, 1.0)
     var bob_offset: Vector3 = Vector3(0.0, sin(_head_bob_time) * head_bob_amount, 0.0)
-    _camera.translation = _camera.translation.lerp(bob_offset, delta * 10.0)
+    _camera.position = _camera.position.lerp(bob_offset, delta * 10.0)
 
 func _update_sway(delta: float) -> void:
     var mouse_pos: Vector2 = get_viewport().get_mouse_position()

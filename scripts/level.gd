@@ -52,25 +52,25 @@ func _generate_level() -> void:
             _create_steam(cell)
 
 func _create_floor(cell: Vector2i) -> void:
-    var floor: StaticBody3D = StaticBody3D.new()
-    floor.name = "Floor_%s_%s" % [cell.x, cell.y]
+    var floor_body: StaticBody3D = StaticBody3D.new()
+    floor_body.name = "Floor_%s_%s" % [cell.x, cell.y]
     var mesh_instance: MeshInstance3D = MeshInstance3D.new()
     var mesh: BoxMesh = BoxMesh.new()
     mesh.size = Vector3(cell_size, 0.2, cell_size)
     mesh_instance.mesh = mesh
     mesh_instance.material_override = _create_floor_material()
-    mesh_instance.translation = Vector3(0, -0.6, 0)
-    floor.add_child(mesh_instance)
+    mesh_instance.position = Vector3(0, -0.6, 0)
+    floor_body.add_child(mesh_instance)
 
     var collision: CollisionShape3D = CollisionShape3D.new()
     var shape: BoxShape3D = BoxShape3D.new()
     shape.size = Vector3(cell_size, 0.2, cell_size)
     collision.shape = shape
-    collision.translation = Vector3.ZERO
-    floor.add_child(collision)
+    collision.position = Vector3.ZERO
+    floor_body.add_child(collision)
 
-    floor.translation = grid_to_world(cell)
-    add_child(floor)
+    floor_body.position = grid_to_world(cell)
+    add_child(floor_body)
 
 func _create_walls_for_cell(cell: Vector2i) -> void:
     for dir in DIRECTIONS:
@@ -109,7 +109,7 @@ func _create_wall_segment(cell: Vector2i, dir: Vector2i) -> void:
     elif dir == Vector2i.RIGHT:
         offset = Vector3(cell_size / 2.0, wall_height / 2.0, 0)
 
-    wall.translation = grid_to_world(cell) + offset
+    wall.position = grid_to_world(cell) + offset
     add_child(wall)
 
 func _create_pipe(cell: Vector2i) -> void:
@@ -121,7 +121,7 @@ func _create_pipe(cell: Vector2i) -> void:
     pipe.mesh = pipe_mesh
     pipe.material_override = _create_pipe_material()
     pipe.rotation_degrees = Vector3(90, 0, randf_range(-12, 12))
-    pipe.translation = grid_to_world(cell) + Vector3(randf_range(-cell_size * 0.3, cell_size * 0.3), wall_height * 0.6, -cell_size / 2.0 + 0.4)
+    pipe.position = grid_to_world(cell) + Vector3(randf_range(-cell_size * 0.3, cell_size * 0.3), wall_height * 0.6, -cell_size / 2.0 + 0.4)
     add_child(pipe)
 
 func _create_steam(cell: Vector2i) -> void:
@@ -133,7 +133,7 @@ func _create_steam(cell: Vector2i) -> void:
     particles.emitting = true
     particles.speed_scale = 0.8
     particles.process_material = _create_steam_material()
-    particles.translation = grid_to_world(cell) + Vector3(randf_range(-1.2, 1.2), 0.2, randf_range(-1.2, 1.2))
+    particles.position = grid_to_world(cell) + Vector3(randf_range(-1.2, 1.2), 0.2, randf_range(-1.2, 1.2))
     add_child(particles)
 
 func _create_floor_material() -> StandardMaterial3D:
