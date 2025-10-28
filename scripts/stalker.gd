@@ -134,8 +134,9 @@ func _update_chase(delta: float) -> void:
     var monster_pos: Vector3 = global_transform.origin
     var player_pos: Vector3 = _player.global_transform.origin
     var distance: float = monster_pos.distance_to(player_pos)
+    var player_visible: bool = _player_is_visible()
 
-    if _player_is_visible():
+    if player_visible:
         _time_since_seen = 0.0
         if distance <= attack_distance * 1.2:
             _enter_attack()
@@ -144,9 +145,25 @@ func _update_chase(delta: float) -> void:
         _state = "STALK"
         return
 
-    if _path.is_empty() or _time_since_seen < 0.3:
-        _set_path(_level.world_to_grid(monster_pos), _level.world_to_grid(player_pos), "chase:player")
+    if _path.is_empty() or _time_since_seen < 0.3 or (player_visible and _path.size() <= 1):
+        _set_path(
+            _level.world_to_grid(monster_pos),
+            _level.world_to_grid(player_pos),
+            "chase:player",
+            player_pos,
+            player_visible
+        )
     _follow_path(delta, move_speed)
+
+    if player_visible and (_path.is_empty() or _path.size() <= 1):
+        var to_player: Vector3 = player_pos - monster_pos
+        to_player.y = 0.0
+        if to_player.length() > 0.05:
+            var direct_dir: Vector3 = to_player.normalized()
+            velocity.x = lerp(velocity.x, direct_dir.x * move_speed, delta * acceleration)
+            velocity.z = lerp(velocity.z, direct_dir.z * move_speed, delta * acceleration)
+            _current_target = player_pos
+            _has_current_target = true
 
 func _update_attack(delta: float) -> void:
     _lunge_timer += delta
@@ -240,23 +257,51 @@ func _on_player_noise(strength: float) -> void:
     var player_pos: Vector3 = _player.global_transform.origin
     _last_noise_position = player_pos
     if _state == "STALK" or _state == "CHASE":
-        _set_path(_level.world_to_grid(global_transform.origin), _level.world_to_grid(player_pos), "noise")
+        _set_path(
+            _level.world_to_grid(global_transform.origin),
+            _level.world_to_grid(player_pos),
+            "noise",
+            player_pos,
+            true
+        )
 
 func _process(delta: float) -> void:
     if _noise_timer > 0.0:
         _noise_timer -= delta
     if _state == "STALK" and _noise_timer > 0.0:
         var target_cell: Vector2i = _level.world_to_grid(_last_noise_position)
-        _set_path(_level.world_to_grid(global_transform.origin), target_cell, "noise_memory")
+        _set_path(
+            _level.world_to_grid(global_transform.origin),
+            target_cell,
+            "noise_memory",
+            _last_noise_position,
+            true
+        )
     _sway_time += delta * (1.5 if _state == "STALK" else 3.0)
     if _body_mesh:
         _body_mesh.rotation_degrees.x = sin(_sway_time * 0.9) * 6.0
         _body_mesh.rotation_degrees.z = cos(_sway_time * 1.3) * 8.0
 
-func _set_path(from_cell: Vector2i, to_cell: Vector2i, reason: String) -> void:
+func _set_path(
+        from_cell: Vector2i,
+        to_cell: Vector2i,
+        reason: String,
+        final_world_target: Vector3 = Vector3.ZERO,
+        include_final_target: bool = false
+    ) -> void:
     if not _level:
         return
-    _path = _level.find_path(from_cell, to_cell)
+    var new_path: PackedVector3Array = _level.find_path(from_cell, to_cell)
+    if include_final_target:
+        if new_path.is_empty():
+            new_path.append(final_world_target)
+        else:
+            var last_index: int = new_path.size() - 1
+            if new_path[last_index].distance_to(final_world_target) > 0.05:
+                new_path.append(final_world_target)
+            else:
+                new_path[last_index] = final_world_target
+    _path = new_path
     _path_index = 0
     _last_path_debug = _level.get_last_path_debug()
     _last_repath_reason = reason
@@ -271,7 +316,13 @@ func _handle_stuck() -> void:
     var origin_cell: Vector2i = _level.world_to_grid(global_transform.origin)
     match _state:
         "CHASE":
-            _set_path(origin_cell, _level.world_to_grid(_player.global_transform.origin), "stuck:repath_player")
+            _set_path(
+                origin_cell,
+                _level.world_to_grid(_player.global_transform.origin),
+                "stuck:repath_player",
+                _player.global_transform.origin,
+                true
+            )
         "STALK":
             _choose_hiding_destination(_player.global_transform.origin)
         _:
