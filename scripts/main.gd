@@ -140,6 +140,11 @@ func _update_debug_overlay() -> void:
         lines.append("ADJ CELLS: %s -> %s" % [path_debug.get("actual_start", Vector2i.ZERO), path_debug.get("actual_goal", Vector2i.ZERO)])
         lines.append("FOUND PATH: %s (%d steps)" % ["YES" if path_debug.get("found", false) else "NO", path_debug.get("path_length", 0)])
         lines.append("START OFFSET: %d, GOAL OFFSET: %d" % [path_debug.get("start_adjust_steps", 0), path_debug.get("goal_adjust_steps", 0)])
+        if path_debug.has("used_fallback"):
+            var fallback_cell: Vector2i = path_debug.get("fallback_cell", Vector2i.ZERO)
+            var fallback_dist: float = path_debug.get("fallback_distance", 0.0)
+            var fallback_flag: String = "YES" if path_debug.get("used_fallback", false) else "NO"
+            lines.append("FALLBACK: %s @ %s (%.1f cells)" % [fallback_flag, fallback_cell, fallback_dist])
     var last_noise: Vector3 = info.get("last_noise_position", Vector3.ZERO)
     lines.append("LAST NOISE: %s" % _format_vector(last_noise))
     debug_label.text = "\n".join(lines)
@@ -173,6 +178,8 @@ func _set_monster_view_enabled(enabled: bool) -> void:
     monster_viewport.render_target_update_mode = (
         SubViewport.UPDATE_ALWAYS if _monster_view_enabled else SubViewport.UPDATE_DISABLED
     )
+    if monster_view_camera:
+        monster_view_camera.current = _monster_view_enabled
     if _monster_view_enabled:
         _monster_cam_position = stalker.global_transform.origin + Vector3(0, 6.5, 9.0)
         var start_transform: Transform3D = monster_view_camera.global_transform

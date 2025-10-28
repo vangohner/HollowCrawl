@@ -276,6 +276,34 @@ func find_path(start: Vector2i, goal: Vector2i) -> PackedVector3Array:
                 frontier.append(neighbor)
                 came_from[neighbor] = current
     if not came_from.has(actual_goal):
+        var fallback_cell: Vector2i = actual_start
+        var fallback_distance: float = INF
+        for cell_variant in came_from.keys():
+            var cell: Vector2i = cell_variant as Vector2i
+            var distance_vec: Vector2 = Vector2(cell.x, cell.y) - Vector2(actual_goal.x, actual_goal.y)
+            var distance: float = distance_vec.length()
+            if distance < fallback_distance:
+                fallback_distance = distance
+                fallback_cell = cell
+        debug["found"] = false
+        debug["used_fallback"] = fallback_cell != actual_goal
+        debug["fallback_cell"] = fallback_cell
+        debug["fallback_distance"] = fallback_distance
+        if fallback_cell != actual_goal:
+            var cells: Array[Vector2i] = []
+            var cursor_fb: Vector2i = fallback_cell
+            while true:
+                cells.insert(0, cursor_fb)
+                if cursor_fb == actual_start:
+                    break
+                cursor_fb = came_from.get(cursor_fb, actual_start)
+            var result_fb: PackedVector3Array = PackedVector3Array()
+            for c in cells:
+                result_fb.append(grid_to_world(c))
+            debug["path_length"] = result_fb.size()
+            debug["cells"] = cells.duplicate()
+            _last_path_debug = debug
+            return result_fb
         _last_path_debug = debug
         return PackedVector3Array()
     var cells: Array[Vector2i] = []
@@ -289,6 +317,9 @@ func find_path(start: Vector2i, goal: Vector2i) -> PackedVector3Array:
     for c in cells:
         result.append(grid_to_world(c))
     debug["found"] = true
+    debug["used_fallback"] = false
+    debug["fallback_cell"] = actual_goal
+    debug["fallback_distance"] = 0.0
     debug["path_length"] = result.size()
     debug["cells"] = cells.duplicate()
     _last_path_debug = debug

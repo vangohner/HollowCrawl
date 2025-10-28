@@ -59,7 +59,10 @@ func get_debug_info() -> Dictionary:
         info["current_target"] = _path[_path_index]
     else:
         info["current_target"] = null
-    info["active_target_world"] = _current_target if _has_current_target else null
+    if _has_current_target:
+        info["active_target_world"] = _current_target
+    else:
+        info["active_target_world"] = null
     return info
 
 func _ready() -> void:
@@ -304,18 +307,24 @@ func _set_path(
     if not _level:
         return
     var new_path: PackedVector3Array = _level.find_path(from_cell, to_cell)
+    var path_debug: Dictionary = _level.get_last_path_debug()
+    var reached_goal: bool = path_debug.get("found", false)
+    var used_fallback: bool = path_debug.get("used_fallback", false)
     if include_final_target:
-        if new_path.is_empty():
-            new_path.append(final_world_target)
-        else:
-            var last_index: int = new_path.size() - 1
-            if new_path[last_index].distance_to(final_world_target) > 0.05:
+        if reached_goal:
+            if new_path.is_empty():
                 new_path.append(final_world_target)
             else:
-                new_path[last_index] = final_world_target
+                var last_index: int = new_path.size() - 1
+                if new_path[last_index].distance_to(final_world_target) > 0.05:
+                    new_path.append(final_world_target)
+                else:
+                    new_path[last_index] = final_world_target
+        elif new_path.is_empty() and not used_fallback:
+            new_path.append(final_world_target)
     _path = new_path
     _path_index = 0
-    _last_path_debug = _level.get_last_path_debug()
+    _last_path_debug = path_debug.duplicate(true)
     _last_repath_reason = reason
     _current_target = Vector3.ZERO
     _has_current_target = false
