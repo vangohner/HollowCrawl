@@ -97,7 +97,7 @@ func _physics_process(delta: float) -> void:
         "ATTACK":
             _update_attack(delta)
 
-    velocity = move_and_slide()
+    move_and_slide()
 
     if _state != "ATTACK":
         var horizontal_speed: float = Vector3(velocity.x, 0.0, velocity.z).length()
