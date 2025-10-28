@@ -10,11 +10,16 @@ extends Node3D
 @onready var debug_panel: Control = $HUD/DebugPanel
 @onready var debug_label: Label = $HUD/DebugPanel/Label
 @onready var path_debug: PathVisualizer = $PathDebug
+@onready var monster_view: SubViewportContainer = $HUD/MonsterView
+@onready var monster_viewport: SubViewport = $HUD/MonsterView/Viewport
+@onready var monster_view_camera: Camera3D = $HUD/MonsterView/Viewport/Camera
 
 var _caught := false
 var _debug_visible := false
 var _debug_refresh := 0.0
 var _path_debug_visible := false
+var _monster_view_enabled := false
+var _monster_cam_position: Vector3 = Vector3.ZERO
 
 func _ready() -> void:
     randomize()
@@ -37,6 +42,11 @@ func _ready() -> void:
     _on_player_movement_state(false, 0.0)
     if path_debug:
         path_debug.visible = false
+    if monster_viewport:
+        monster_viewport.world_3d = get_viewport().world_3d
+        monster_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+    if monster_view:
+        monster_view.visible = false
 
 func _input(event: InputEvent) -> void:
     if event.is_action_pressed("toggle_debug_monster"):
@@ -51,6 +61,8 @@ func _input(event: InputEvent) -> void:
         if not _path_debug_visible and path_debug:
             path_debug.visible = false
             path_debug.clear()
+    elif event.is_action_pressed("toggle_monster_view"):
+        _set_monster_view_enabled(!_monster_view_enabled)
 
 func _on_stamina_changed(value: float) -> void:
     stamina_bar.value = clamp(value * 100.0, 0.0, 100.0)
@@ -87,6 +99,8 @@ func _process(delta: float) -> void:
             _debug_refresh = 0.2
     if _path_debug_visible:
         _update_path_debug()
+    if _monster_view_enabled:
+        _update_monster_view(delta)
 
 func _update_debug_overlay() -> void:
     if not is_instance_valid(stalker):
@@ -146,3 +160,37 @@ func _update_path_debug() -> void:
     var height: float = stalker.global_transform.origin.y
     path_debug.visible = true
     path_debug.update_debug(points, height, stalker.global_transform.origin, stalker.velocity)
+
+func _set_monster_view_enabled(enabled: bool) -> void:
+    if not monster_view or not monster_viewport or not monster_view_camera:
+        _monster_view_enabled = false
+        return
+    if enabled and not is_instance_valid(stalker):
+        _monster_view_enabled = false
+        return
+    _monster_view_enabled = enabled
+    monster_view.visible = _monster_view_enabled
+    monster_viewport.render_target_update_mode = (
+        SubViewport.UPDATE_ALWAYS if _monster_view_enabled else SubViewport.UPDATE_DISABLED
+    )
+    if _monster_view_enabled:
+        _monster_cam_position = stalker.global_transform.origin + Vector3(0, 6.5, 9.0)
+        var start_transform: Transform3D = monster_view_camera.global_transform
+        start_transform.origin = _monster_cam_position
+        monster_view_camera.global_transform = start_transform
+        monster_view_camera.look_at(stalker.global_transform.origin + Vector3.UP, Vector3.UP)
+
+func _update_monster_view(delta: float) -> void:
+    if not _monster_view_enabled:
+        return
+    if not is_instance_valid(stalker):
+        _set_monster_view_enabled(false)
+        return
+    var target: Vector3 = stalker.global_transform.origin + Vector3(0, 0.8, 0)
+    var desired: Vector3 = target + Vector3(0, 6.5, 9.0)
+    var lerp_speed: float = clampf(delta * 6.0, 0.0, 1.0)
+    _monster_cam_position = _monster_cam_position.lerp(desired, lerp_speed)
+    var current_transform: Transform3D = monster_view_camera.global_transform
+    current_transform.origin = _monster_cam_position
+    monster_view_camera.global_transform = current_transform
+    monster_view_camera.look_at(target, Vector3.UP)

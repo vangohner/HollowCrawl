@@ -30,6 +30,7 @@ var _last_repath_reason: String = ""
 var _current_target: Vector3 = Vector3.ZERO
 var _stuck_timer: float = 0.0
 var _has_current_target: bool = false
+var _chase_repath_cooldown: float = 0.0
 
 const _STUCK_SPEED_THRESHOLD: float = 0.25
 const _STUCK_TIME_THRESHOLD: float = 1.5
@@ -87,6 +88,8 @@ func _physics_process(delta: float) -> void:
         velocity.y -= gravity * delta
     else:
         velocity.y = 0.0
+    if _chase_repath_cooldown > 0.0:
+        _chase_repath_cooldown = max(_chase_repath_cooldown - delta, 0.0)
 
     match _state:
         "STALK":
@@ -148,7 +151,15 @@ func _update_chase(delta: float) -> void:
         _state = "STALK"
         return
 
-    if _path.is_empty() or _time_since_seen < 0.3 or (player_visible and _path.size() <= 1):
+    var need_repath: bool = _path.is_empty()
+    if not need_repath:
+        if player_visible and _path.size() <= 1:
+            need_repath = true
+        elif player_visible and _chase_repath_cooldown <= 0.0:
+            need_repath = true
+        elif not player_visible and _chase_repath_cooldown <= 0.0 and _path_index >= _path.size():
+            need_repath = true
+    if need_repath:
         _set_path(
             _level.world_to_grid(monster_pos),
             _level.world_to_grid(player_pos),
@@ -156,6 +167,7 @@ func _update_chase(delta: float) -> void:
             player_pos,
             player_visible
         )
+        _chase_repath_cooldown = 0.35 if player_visible else 0.65
     _follow_path(delta, move_speed)
 
     if player_visible and (_path.is_empty() or _path.size() <= 1):
@@ -236,6 +248,7 @@ func _enter_chase() -> void:
     _current_target = Vector3.ZERO
     _has_current_target = false
     _last_repath_reason = ""
+    _chase_repath_cooldown = 0.0
 
 func _enter_attack() -> void:
     _state = "ATTACK"
@@ -322,6 +335,7 @@ func _handle_stuck() -> void:
                 _player.global_transform.origin,
                 true
             )
+            _chase_repath_cooldown = 0.3
         "STALK":
             _choose_hiding_destination(_player.global_transform.origin)
         _:
