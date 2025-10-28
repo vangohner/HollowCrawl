@@ -34,7 +34,7 @@ var _has_current_target: bool = false
 const _STUCK_SPEED_THRESHOLD: float = 0.25
 const _STUCK_TIME_THRESHOLD: float = 1.5
 
-@onready var _body_controller: StalkerBody = $Body
+@onready var _body_controller: StalkerBody = get_node_or_null("Body") as StalkerBody
 
 func get_debug_info() -> Dictionary:
     var info := {

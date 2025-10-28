@@ -54,4 +54,4 @@ func stop_steps() -> void:
     if playing:
         stop()
     if _playback:
-        _playback.clear_buffer()
+        _playback = null
