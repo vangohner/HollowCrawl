@@ -25,7 +25,6 @@ var _noise_timer: float = 0.0
 var _last_noise_position: Vector3 = Vector3.ZERO
 var _time_since_seen: float = 0.0
 var _lunge_timer: float = 0.0
-var _sway_time: float = 0.0
 var _last_path_debug: Dictionary = {}
 var _last_repath_reason: String = ""
 var _current_target: Vector3 = Vector3.ZERO
@@ -35,7 +34,7 @@ var _has_current_target: bool = false
 const _STUCK_SPEED_THRESHOLD: float = 0.25
 const _STUCK_TIME_THRESHOLD: float = 1.5
 
-@onready var _body_mesh: Node3D = $Body
+@onready var _body_controller: StalkerBody = $Body
 
 func get_debug_info() -> Dictionary:
     var info := {
@@ -98,6 +97,10 @@ func _physics_process(delta: float) -> void:
             _update_attack(delta)
 
     move_and_slide()
+
+    if _body_controller:
+        var planar_velocity: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+        _body_controller.update_motion(planar_velocity, delta, is_on_floor())
 
     if _state != "ATTACK":
         var horizontal_speed: float = Vector3(velocity.x, 0.0, velocity.z).length()
@@ -277,10 +280,6 @@ func _process(delta: float) -> void:
             _last_noise_position,
             true
         )
-    _sway_time += delta * (1.5 if _state == "STALK" else 3.0)
-    if _body_mesh:
-        _body_mesh.rotation_degrees.x = sin(_sway_time * 0.9) * 6.0
-        _body_mesh.rotation_degrees.z = cos(_sway_time * 1.3) * 8.0
 
 func _set_path(
         from_cell: Vector2i,
