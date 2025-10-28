@@ -24,6 +24,7 @@ run={"deadzone":0.2,"events":[{"type":"InputEventKey","keycode":16777237,"physic
 flashlight_toggle={"deadzone":0.2,"events":[{"type":"InputEventKey","keycode":70,"physical_keycode":70,"unicode":102}]}
 interact={"deadzone":0.2,"events":[{"type":"InputEventKey","keycode":69,"physical_keycode":69,"unicode":101}]}
 toggle_debug_monster={"deadzone":0.2,"events":[{"type":"InputEventKey","keycode":16777244,"physical_keycode":0,"unicode":0},{"type":"InputEventKey","keycode":16777244,"physical_keycode":16777244,"unicode":0},{"type":"InputEventKey","keycode":16777244,"physical_keycode":290,"unicode":0}]}
+toggle_path_debug={"deadzone":0.2,"events":[{"type":"InputEventKey","keycode":16777245,"physical_keycode":0,"unicode":0},{"type":"InputEventKey","keycode":16777245,"physical_keycode":16777245,"unicode":0},{"type":"InputEventKey","keycode":16777245,"physical_keycode":291,"unicode":0}]}
 
 [physics]
 common/enable_pause_aware_picking=true

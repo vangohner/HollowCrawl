@@ -30,6 +30,7 @@ const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, 
 var _walkable: Dictionary = {}
 var _cells: Array[Vector2i] = []
 var _space_state: PhysicsDirectSpaceState3D = null
+var _last_path_debug: Dictionary = {}
 
 func _ready() -> void:
     randomize()
@@ -236,32 +237,80 @@ func is_walkable(cell: Vector2i) -> bool:
     return _walkable.has(cell)
 
 func find_path(start: Vector2i, goal: Vector2i) -> PackedVector3Array:
-    if not _walkable.has(start) or not _walkable.has(goal):
+    var debug: Dictionary = {
+        "requested_start": start,
+        "requested_goal": goal,
+        "start_valid": _walkable.has(start),
+        "goal_valid": _walkable.has(goal),
+        "start_adjust_steps": 0,
+        "goal_adjust_steps": 0,
+        "actual_start": start,
+        "actual_goal": goal,
+        "found": false,
+        "path_length": 0,
+        "cells": []
+    }
+
+    var actual_start_result: Dictionary = _find_nearest_walkable(start)
+    var actual_goal_result: Dictionary = _find_nearest_walkable(goal)
+    debug["start_adjust_steps"] = actual_start_result.get("steps", 0)
+    debug["goal_adjust_steps"] = actual_goal_result.get("steps", 0)
+    var actual_start: Vector2i = actual_start_result.get("cell", start)
+    var actual_goal: Vector2i = actual_goal_result.get("cell", goal)
+    debug["actual_start"] = actual_start
+    debug["actual_goal"] = actual_goal
+
+    if not _walkable.has(actual_start) or not _walkable.has(actual_goal):
+        _last_path_debug = debug
         return PackedVector3Array()
-    var frontier: Array[Vector2i] = [start]
-    var came_from: Dictionary = {start: start}
+
+    var frontier: Array[Vector2i] = [actual_start]
+    var came_from: Dictionary = {actual_start: actual_start}
     while frontier:
         var current: Vector2i = frontier.pop_front()
-        if current == goal:
+        if current == actual_goal:
             break
         for dir in DIRECTIONS:
             var neighbor: Vector2i = current + dir
             if _walkable.has(neighbor) and not came_from.has(neighbor):
                 frontier.append(neighbor)
                 came_from[neighbor] = current
-    if not came_from.has(goal):
+    if not came_from.has(actual_goal):
+        _last_path_debug = debug
         return PackedVector3Array()
     var cells: Array[Vector2i] = []
-    var cursor: Vector2i = goal
+    var cursor: Vector2i = actual_goal
     while true:
         cells.insert(0, cursor)
-        if cursor == start:
+        if cursor == actual_start:
             break
         cursor = came_from[cursor]
     var result: PackedVector3Array = PackedVector3Array()
     for c in cells:
         result.append(grid_to_world(c))
+    debug["found"] = true
+    debug["path_length"] = result.size()
+    debug["cells"] = cells.duplicate()
+    _last_path_debug = debug
     return result
+
+func _find_nearest_walkable(cell: Vector2i) -> Dictionary:
+    var visited: Dictionary = {cell: true}
+    var frontier: Array[Vector2i] = [cell]
+    var steps: Dictionary = {cell: 0}
+    while frontier:
+        var current: Vector2i = frontier.pop_front()
+        if _walkable.has(current):
+            return {"cell": current, "steps": steps.get(current, 0)}
+        var distance: int = steps.get(current, 0) + 1
+        for dir in DIRECTIONS:
+            var neighbor: Vector2i = current + dir
+            if visited.has(neighbor):
+                continue
+            visited[neighbor] = true
+            steps[neighbor] = distance
+            frontier.append(neighbor)
+    return {"cell": cell, "steps": -1}
 
 func get_random_cell_near(center: Vector2i, radius: int, require_cover: bool = false, threat_origin: Vector3 = Vector3.ZERO) -> Vector2i:
     var candidates: Array[Vector2i] = []
@@ -310,3 +359,6 @@ func has_line_of_sight_world(from_pos: Vector3, to_pos: Vector3, exclude: Array 
 
 func get_cells() -> Array[Vector2i]:
     return _cells.duplicate()
+
+func get_last_path_debug() -> Dictionary:
+    return _last_path_debug.duplicate(true)

@@ -26,6 +26,14 @@ var _last_noise_position: Vector3 = Vector3.ZERO
 var _time_since_seen: float = 0.0
 var _lunge_timer: float = 0.0
 var _sway_time: float = 0.0
+var _last_path_debug: Dictionary = {}
+var _last_repath_reason: String = ""
+var _current_target: Vector3 = Vector3.ZERO
+var _stuck_timer: float = 0.0
+var _has_current_target: bool = false
+
+const _STUCK_SPEED_THRESHOLD: float = 0.25
+const _STUCK_TIME_THRESHOLD: float = 1.5
 
 @onready var _body_mesh: Node3D = $Body
 
@@ -39,7 +47,11 @@ func get_debug_info() -> Dictionary:
         "path_length": _path.size(),
         "noise_memory": _noise_timer,
         "time_since_seen": _time_since_seen,
-        "last_noise_position": _last_noise_position
+        "last_noise_position": _last_noise_position,
+        "on_floor": is_on_floor(),
+        "stuck_time": _stuck_timer,
+        "last_path_reason": _last_repath_reason,
+        "path_debug": _last_path_debug.duplicate(true)
     }
     if _player:
         info["distance_to_player"] = global_transform.origin.distance_to(_player.global_transform.origin)
@@ -47,6 +59,7 @@ func get_debug_info() -> Dictionary:
         info["current_target"] = _path[_path_index]
     else:
         info["current_target"] = null
+    info["active_target_world"] = _current_target if _has_current_target else null
     return info
 
 func _ready() -> void:
@@ -84,7 +97,16 @@ func _physics_process(delta: float) -> void:
         "ATTACK":
             _update_attack(delta)
 
-    move_and_slide()
+    velocity = move_and_slide()
+
+    if _state != "ATTACK":
+        var horizontal_speed: float = Vector3(velocity.x, 0.0, velocity.z).length()
+        if horizontal_speed < _STUCK_SPEED_THRESHOLD and not _path.is_empty():
+            _stuck_timer += delta
+            if _stuck_timer >= _STUCK_TIME_THRESHOLD:
+                _handle_stuck()
+        else:
+            _stuck_timer = 0.0
 
 func _update_stalk(delta: float) -> void:
     _time_since_seen += delta
@@ -123,8 +145,7 @@ func _update_chase(delta: float) -> void:
         return
 
     if _path.is_empty() or _time_since_seen < 0.3:
-        _path = _level.find_path(_level.world_to_grid(monster_pos), _level.world_to_grid(player_pos))
-        _path_index = 0
+        _set_path(_level.world_to_grid(monster_pos), _level.world_to_grid(player_pos), "chase:player")
     _follow_path(delta, move_speed)
 
 func _update_attack(delta: float) -> void:
@@ -146,6 +167,8 @@ func _follow_path(delta: float, target_speed: float) -> void:
     if _path.is_empty():
         velocity.x = lerp(velocity.x, 0.0, delta * acceleration)
         velocity.z = lerp(velocity.z, 0.0, delta * acceleration)
+        _current_target = Vector3.ZERO
+        _has_current_target = false
         return
     if _path_index >= _path.size():
         _path_index = _path.size() - 1
@@ -156,12 +179,16 @@ func _follow_path(delta: float, target_speed: float) -> void:
         if _path_index >= _path.size():
             velocity.x = lerp(velocity.x, 0.0, delta * acceleration)
             velocity.z = lerp(velocity.z, 0.0, delta * acceleration)
+            _current_target = Vector3.ZERO
+            _has_current_target = false
             return
         target = _path[_path_index]
         target.y = global_transform.origin.y
     var direction: Vector3 = (target - global_transform.origin).normalized()
     velocity.x = lerp(velocity.x, direction.x * target_speed, delta * acceleration)
     velocity.z = lerp(velocity.z, direction.z * target_speed, delta * acceleration)
+    _current_target = target
+    _has_current_target = true
 
 func _choose_hiding_destination(player_pos: Vector3) -> void:
     var player_cell: Vector2i = _level.world_to_grid(player_pos)
@@ -171,11 +198,10 @@ func _choose_hiding_destination(player_pos: Vector3) -> void:
         target_cell = _level.get_random_cell_near(origin_cell, 8, false, player_pos)
     if target_cell == origin_cell:
         target_cell = _level.get_random_distant_cell(origin_cell, 4)
-    _path = _level.find_path(origin_cell, target_cell)
+    _set_path(origin_cell, target_cell, "stalk:wander")
     if _path.size() <= 1:
         target_cell = _level.get_random_distant_cell(origin_cell, 2)
-        _path = _level.find_path(origin_cell, target_cell)
-    _path_index = 0
+        _set_path(origin_cell, target_cell, "stalk:backup")
 
 func _player_is_visible() -> bool:
     var from_pos: Vector3 = global_transform.origin + Vector3.UP * 1.6
@@ -187,6 +213,9 @@ func _enter_chase() -> void:
     _time_since_seen = 0.0
     _path = PackedVector3Array()
     _path_index = 0
+    _current_target = Vector3.ZERO
+    _has_current_target = false
+    _last_repath_reason = ""
 
 func _enter_attack() -> void:
     _state = "ATTACK"
@@ -200,6 +229,9 @@ func _teleport_closer() -> void:
     global_transform = xf
     _path = PackedVector3Array()
     _path_index = 0
+    _current_target = Vector3.ZERO
+    _has_current_target = false
+    _last_repath_reason = "teleport"
 
 func _on_player_noise(strength: float) -> void:
     if strength <= 0.01:
@@ -208,17 +240,44 @@ func _on_player_noise(strength: float) -> void:
     var player_pos: Vector3 = _player.global_transform.origin
     _last_noise_position = player_pos
     if _state == "STALK" or _state == "CHASE":
-        _path = _level.find_path(_level.world_to_grid(global_transform.origin), _level.world_to_grid(player_pos))
-        _path_index = 0
+        _set_path(_level.world_to_grid(global_transform.origin), _level.world_to_grid(player_pos), "noise")
 
 func _process(delta: float) -> void:
     if _noise_timer > 0.0:
         _noise_timer -= delta
     if _state == "STALK" and _noise_timer > 0.0:
         var target_cell: Vector2i = _level.world_to_grid(_last_noise_position)
-        _path = _level.find_path(_level.world_to_grid(global_transform.origin), target_cell)
-        _path_index = 0
+        _set_path(_level.world_to_grid(global_transform.origin), target_cell, "noise_memory")
     _sway_time += delta * (1.5 if _state == "STALK" else 3.0)
     if _body_mesh:
         _body_mesh.rotation_degrees.x = sin(_sway_time * 0.9) * 6.0
         _body_mesh.rotation_degrees.z = cos(_sway_time * 1.3) * 8.0
+
+func _set_path(from_cell: Vector2i, to_cell: Vector2i, reason: String) -> void:
+    if not _level:
+        return
+    _path = _level.find_path(from_cell, to_cell)
+    _path_index = 0
+    _last_path_debug = _level.get_last_path_debug()
+    _last_repath_reason = reason
+    _current_target = Vector3.ZERO
+    _has_current_target = false
+    _stuck_timer = 0.0
+
+func _handle_stuck() -> void:
+    _stuck_timer = 0.0
+    if not _level or not _player:
+        return
+    var origin_cell: Vector2i = _level.world_to_grid(global_transform.origin)
+    match _state:
+        "CHASE":
+            _set_path(origin_cell, _level.world_to_grid(_player.global_transform.origin), "stuck:repath_player")
+        "STALK":
+            _choose_hiding_destination(_player.global_transform.origin)
+        _:
+            pass
+
+func get_path_points() -> PackedVector3Array:
+    var copy: PackedVector3Array = PackedVector3Array()
+    copy.append_array(_path)
+    return copy
