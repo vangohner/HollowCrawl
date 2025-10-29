@@ -16,6 +16,7 @@ extends CharacterBody3D
 
 signal noise_emitted(strength: float)
 signal stamina_changed(value: float)
+signal movement_state_changed(is_running: bool, intensity: float)
 
 var stamina: float = stamina_max
 var _recovery_timer: float = 0.0
@@ -25,10 +26,12 @@ var _camera_pitch_deg: float = 0.0
 var _camera_base_rotation: Vector3 = Vector3.ZERO
 var _camera_default_position: Vector3 = Vector3.ZERO
 var _sway_rotation: Vector3 = Vector3.ZERO
+var _step_timer: float = 0.0
 
 @onready var _camera: Camera3D = $Camera
 @onready var _flashlight: SpotLight3D = $Camera/Flashlight
 @onready var _breath: BreathPlayer = $Breath
+@onready var _footsteps: FootstepPlayer = $Footsteps
 
 func _ready() -> void:
     Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -90,11 +93,17 @@ func _physics_process(delta: float) -> void:
     _update_head_bob(delta, target_speed, move_strength)
     _update_sway(delta)
 
-    var movement_intensity: float = clampf(target_velocity.length() / run_speed, 0.0, 1.0)
-    if movement_intensity > 0.1:
-        emit_signal("noise_emitted", 0.4 + movement_intensity * (1.2 if is_running else 0.6))
+    var horizontal_speed: float = Vector3(velocity.x, 0.0, velocity.z).length()
+    var movement_intensity: float = clampf(horizontal_speed / run_speed, 0.0, 1.0)
+    _handle_footsteps(delta, move_strength, horizontal_speed, is_running)
+
+    if movement_intensity > 0.05:
+        var noise_strength: float = 0.25 + movement_intensity * (1.4 if is_running else 0.8)
+        emit_signal("noise_emitted", noise_strength)
     else:
-        emit_signal("noise_emitted", 0.1)
+        emit_signal("noise_emitted", 0.0)
+
+    emit_signal("movement_state_changed", is_running, movement_intensity)
 
 func _update_head_bob(delta: float, target_speed: float, movement_amount: float) -> void:
     if movement_amount < 0.1 or not is_on_floor():
@@ -131,3 +140,17 @@ func _apply_camera_rotation() -> void:
     base_rotation.x = _camera_pitch_deg
     var target_rotation: Vector3 = base_rotation + _sway_rotation
     _camera.rotation_degrees = target_rotation
+
+func _handle_footsteps(delta: float, move_strength: float, horizontal_speed: float, is_running: bool) -> void:
+    if not is_on_floor() or move_strength < 0.1 or horizontal_speed < 0.2:
+        _step_timer = 0.0
+        if _footsteps:
+            _footsteps.stop_steps()
+        return
+    var intensity: float = clampf(horizontal_speed / (run_speed if is_running else walk_speed), 0.2, 1.0)
+    var interval: float = lerp(0.58, 0.32, clampf(horizontal_speed / run_speed, 0.0, 1.0))
+    _step_timer += delta
+    if _step_timer >= interval:
+        _step_timer = 0.0
+        if _footsteps:
+            _footsteps.play_step(intensity)

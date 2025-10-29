@@ -1,10 +1,11 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/stalker.tscn" id="2"]
 [ext_resource type="Script" path="res://scripts/level.gd" id="3"]
 [ext_resource type="Script" path="res://scripts/main.gd" id="4"]
 [ext_resource type="Script" path="res://scripts/ambient_hum.gd" id="5"]
+[ext_resource type="Script" path="res://scripts/path_visualizer.gd" id="6"]
 
 [node name="Main" type="Node3D"]
 script = ExtResource("4")
@@ -82,4 +83,55 @@ offset_left = 20.0
 offset_top = 20.0
 text = "Noise draws it closer."
 self_modulate = Color(0.65, 0.65, 0.7, 0.9)
+
+[node name="DebugPanel" type="Control" parent="HUD"]
+visible = false
+anchors_preset = 2
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -300.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 260.0
+
+[node name="Background" type="ColorRect" parent="HUD/DebugPanel"]
+anchors_preset = 15
+offset_left = 0.0
+offset_right = 0.0
+offset_top = 0.0
+offset_bottom = 0.0
+color = Color(0.05, 0.05, 0.08, 0.7)
+
+[node name="Label" type="Label" parent="HUD/DebugPanel"]
+anchors_preset = 15
+offset_left = 10.0
+offset_right = -10.0
+offset_top = 10.0
+offset_bottom = -10.0
+horizontal_alignment = 0
+vertical_alignment = 0
+autowrap_mode = 0
+text = ""
+
+[node name="MonsterView" type="SubViewportContainer" parent="HUD"]
+visible = false
+anchors_preset = 3
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -340.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = 200.0
+stretch = true
+
+[node name="Viewport" type="SubViewport" parent="HUD/MonsterView"]
+size = Vector2i(320, 180)
+transparent_bg = true
+render_target_update_mode = 2
+
+[node name="Camera" type="Camera3D" parent="HUD/MonsterView/Viewport"]
+fov = 70.0
+
+[node name="PathDebug" type="Node3D" parent="."]
+script = ExtResource("6")
 

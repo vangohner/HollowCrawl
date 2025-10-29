@@ -6,6 +6,7 @@ const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, 
 @export var wall_height: float = 4.0
 @export var wall_thickness: float = 0.5
 @export var floor_thickness: float = 0.25
+@export var ceiling_thickness: float = 0.25
 @export var map_layout: Array[String] = [
     "########################",
     "#....#...........#.....#",
@@ -29,6 +30,7 @@ const DIRECTIONS: Array[Vector2i] = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, 
 var _walkable: Dictionary = {}
 var _cells: Array[Vector2i] = []
 var _space_state: PhysicsDirectSpaceState3D = null
+var _last_path_debug: Dictionary = {}
 
 func _ready() -> void:
     randomize()
@@ -45,6 +47,7 @@ func _generate_level() -> void:
                 _walkable[cell] = true
                 _cells.append(cell)
                 _create_floor(cell)
+                _create_ceiling(cell)
     for cell in _cells:
         _create_walls_for_cell(cell)
         if randi() % 4 == 0:
@@ -72,6 +75,27 @@ func _create_floor(cell: Vector2i) -> void:
 
     floor_body.position = grid_to_world(cell)
     add_child(floor_body)
+
+func _create_ceiling(cell: Vector2i) -> void:
+    var ceiling_body: StaticBody3D = StaticBody3D.new()
+    ceiling_body.name = "Ceiling_%s_%s" % [cell.x, cell.y]
+    var mesh_instance: MeshInstance3D = MeshInstance3D.new()
+    var mesh: BoxMesh = BoxMesh.new()
+    mesh.size = Vector3(cell_size, ceiling_thickness, cell_size)
+    mesh_instance.mesh = mesh
+    mesh_instance.material_override = _create_ceiling_material()
+    mesh_instance.position = Vector3(0, ceiling_thickness * 0.5, 0)
+    ceiling_body.add_child(mesh_instance)
+
+    var collision: CollisionShape3D = CollisionShape3D.new()
+    var shape: BoxShape3D = BoxShape3D.new()
+    shape.size = Vector3(cell_size, ceiling_thickness, cell_size)
+    collision.shape = shape
+    collision.position = Vector3(0, ceiling_thickness * 0.5, 0)
+    ceiling_body.add_child(collision)
+
+    ceiling_body.position = grid_to_world(cell) + Vector3(0, wall_height, 0)
+    add_child(ceiling_body)
 
 func _create_walls_for_cell(cell: Vector2i) -> void:
     for dir in DIRECTIONS:
@@ -114,15 +138,31 @@ func _create_wall_segment(cell: Vector2i, dir: Vector2i) -> void:
     add_child(wall)
 
 func _create_pipe(cell: Vector2i) -> void:
+    var blocked_dirs: Array[Vector2i] = []
+    for dir in DIRECTIONS:
+        if not _walkable.has(cell + dir):
+            blocked_dirs.append(dir)
+    if blocked_dirs.is_empty():
+        return
+    var facing: Vector2i = blocked_dirs[randi() % blocked_dirs.size()]
     var pipe: MeshInstance3D = MeshInstance3D.new()
     pipe.name = "Pipe_%s_%s" % [cell.x, cell.y]
     var pipe_mesh: CylinderMesh = CylinderMesh.new()
-    pipe_mesh.radius = 0.18
-    pipe_mesh.height = cell_size * 0.9
+    pipe_mesh.radius = 0.22
+    pipe_mesh.height = wall_height - floor_thickness * 0.5
     pipe.mesh = pipe_mesh
     pipe.material_override = _create_pipe_material()
-    pipe.rotation_degrees = Vector3(90, 0, randf_range(-12, 12))
-    pipe.position = grid_to_world(cell) + Vector3(randf_range(-cell_size * 0.3, cell_size * 0.3), wall_height * 0.6, -cell_size / 2.0 + 0.4)
+    var offset: Vector3 = Vector3.ZERO
+    var inset: float = cell_size * 0.5 - 0.35
+    if facing == Vector2i.UP:
+        offset = Vector3(0, pipe_mesh.height * 0.5, -inset)
+    elif facing == Vector2i.DOWN:
+        offset = Vector3(0, pipe_mesh.height * 0.5, inset)
+    elif facing == Vector2i.LEFT:
+        offset = Vector3(-inset, pipe_mesh.height * 0.5, 0)
+    else:
+        offset = Vector3(inset, pipe_mesh.height * 0.5, 0)
+    pipe.position = grid_to_world(cell) + offset
     add_child(pipe)
 
 func _create_steam(cell: Vector2i) -> void:
@@ -151,6 +191,13 @@ func _create_wall_material() -> StandardMaterial3D:
     mat.roughness = 0.9
     mat.metallic = 0.05
     # Detail channels expect texture inputs; omit to avoid type mismatches when using plain colors.
+    return mat
+
+func _create_ceiling_material() -> StandardMaterial3D:
+    var mat: StandardMaterial3D = StandardMaterial3D.new()
+    mat.albedo_color = Color(0.05, 0.05, 0.055, 1)
+    mat.roughness = 0.95
+    mat.metallic = 0.02
     return mat
 
 func _create_pipe_material() -> StandardMaterial3D:
@@ -190,32 +237,111 @@ func is_walkable(cell: Vector2i) -> bool:
     return _walkable.has(cell)
 
 func find_path(start: Vector2i, goal: Vector2i) -> PackedVector3Array:
-    if not _walkable.has(start) or not _walkable.has(goal):
+    var debug: Dictionary = {
+        "requested_start": start,
+        "requested_goal": goal,
+        "start_valid": _walkable.has(start),
+        "goal_valid": _walkable.has(goal),
+        "start_adjust_steps": 0,
+        "goal_adjust_steps": 0,
+        "actual_start": start,
+        "actual_goal": goal,
+        "found": false,
+        "path_length": 0,
+        "cells": []
+    }
+
+    var actual_start_result: Dictionary = _find_nearest_walkable(start)
+    var actual_goal_result: Dictionary = _find_nearest_walkable(goal)
+    debug["start_adjust_steps"] = actual_start_result.get("steps", 0)
+    debug["goal_adjust_steps"] = actual_goal_result.get("steps", 0)
+    var actual_start: Vector2i = actual_start_result.get("cell", start)
+    var actual_goal: Vector2i = actual_goal_result.get("cell", goal)
+    debug["actual_start"] = actual_start
+    debug["actual_goal"] = actual_goal
+
+    if not _walkable.has(actual_start) or not _walkable.has(actual_goal):
+        _last_path_debug = debug
         return PackedVector3Array()
-    var frontier: Array[Vector2i] = [start]
-    var came_from: Dictionary = {start: start}
+
+    var frontier: Array[Vector2i] = [actual_start]
+    var came_from: Dictionary = {actual_start: actual_start}
     while frontier:
         var current: Vector2i = frontier.pop_front()
-        if current == goal:
+        if current == actual_goal:
             break
         for dir in DIRECTIONS:
             var neighbor: Vector2i = current + dir
             if _walkable.has(neighbor) and not came_from.has(neighbor):
                 frontier.append(neighbor)
                 came_from[neighbor] = current
-    if not came_from.has(goal):
+    if not came_from.has(actual_goal):
+        var fallback_cell: Vector2i = actual_start
+        var fallback_distance: float = INF
+        for cell_variant in came_from.keys():
+            var cell: Vector2i = cell_variant as Vector2i
+            var distance_vec: Vector2 = Vector2(cell.x, cell.y) - Vector2(actual_goal.x, actual_goal.y)
+            var distance: float = distance_vec.length()
+            if distance < fallback_distance:
+                fallback_distance = distance
+                fallback_cell = cell
+        debug["found"] = false
+        debug["used_fallback"] = fallback_cell != actual_goal
+        debug["fallback_cell"] = fallback_cell
+        debug["fallback_distance"] = fallback_distance
+        if fallback_cell != actual_goal:
+            var cells: Array[Vector2i] = []
+            var cursor_fb: Vector2i = fallback_cell
+            while true:
+                cells.insert(0, cursor_fb)
+                if cursor_fb == actual_start:
+                    break
+                cursor_fb = came_from.get(cursor_fb, actual_start)
+            var result_fb: PackedVector3Array = PackedVector3Array()
+            for c in cells:
+                result_fb.append(grid_to_world(c))
+            debug["path_length"] = result_fb.size()
+            debug["cells"] = cells.duplicate()
+            _last_path_debug = debug
+            return result_fb
+        _last_path_debug = debug
         return PackedVector3Array()
     var cells: Array[Vector2i] = []
-    var cursor: Vector2i = goal
+    var cursor: Vector2i = actual_goal
     while true:
         cells.insert(0, cursor)
-        if cursor == start:
+        if cursor == actual_start:
             break
         cursor = came_from[cursor]
     var result: PackedVector3Array = PackedVector3Array()
     for c in cells:
         result.append(grid_to_world(c))
+    debug["found"] = true
+    debug["used_fallback"] = false
+    debug["fallback_cell"] = actual_goal
+    debug["fallback_distance"] = 0.0
+    debug["path_length"] = result.size()
+    debug["cells"] = cells.duplicate()
+    _last_path_debug = debug
     return result
+
+func _find_nearest_walkable(cell: Vector2i) -> Dictionary:
+    var visited: Dictionary = {cell: true}
+    var frontier: Array[Vector2i] = [cell]
+    var steps: Dictionary = {cell: 0}
+    while frontier:
+        var current: Vector2i = frontier.pop_front()
+        if _walkable.has(current):
+            return {"cell": current, "steps": steps.get(current, 0)}
+        var distance: int = steps.get(current, 0) + 1
+        for dir in DIRECTIONS:
+            var neighbor: Vector2i = current + dir
+            if visited.has(neighbor):
+                continue
+            visited[neighbor] = true
+            steps[neighbor] = distance
+            frontier.append(neighbor)
+    return {"cell": cell, "steps": -1}
 
 func get_random_cell_near(center: Vector2i, radius: int, require_cover: bool = false, threat_origin: Vector3 = Vector3.ZERO) -> Vector2i:
     var candidates: Array[Vector2i] = []
@@ -228,7 +354,24 @@ func get_random_cell_near(center: Vector2i, radius: int, require_cover: bool = f
     if candidates.is_empty():
         return center
     candidates.shuffle()
+    for candidate in candidates:
+        if candidate != center:
+            return candidate
     return candidates[0]
+
+func get_random_distant_cell(origin: Vector2i, min_distance: int = 4) -> Vector2i:
+    var options: Array[Vector2i] = []
+    var origin_pos: Vector2 = Vector2(origin.x, origin.y)
+    for cell in _cells:
+        if cell == origin:
+            continue
+        var distance: float = Vector2(cell.x, cell.y).distance_to(origin_pos)
+        if distance >= float(min_distance):
+            options.append(cell)
+    if options.is_empty():
+        return origin
+    options.shuffle()
+    return options[0]
 
 func has_line_of_sight_world(from_pos: Vector3, to_pos: Vector3, exclude: Array = []) -> bool:
     if not _space_state:
@@ -247,3 +390,6 @@ func has_line_of_sight_world(from_pos: Vector3, to_pos: Vector3, exclude: Array 
 
 func get_cells() -> Array[Vector2i]:
     return _cells.duplicate()
+
+func get_last_path_debug() -> Dictionary:
+    return _last_path_debug.duplicate(true)
